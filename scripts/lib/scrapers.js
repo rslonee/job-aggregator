@@ -6,8 +6,9 @@ import * as cheerio from 'cheerio'
 /**
  * Scrape jobs from a Workday career page via POST, with full pagination support.
  * @param {string} endpointUrl - full POST endpoint, e.g., .../jobs
+ * @param {string} companyName - human-friendly company name (from sites.name)
  */
-export async function scrapeWorkday(endpointUrl) {
+export async function scrapeWorkday(endpointUrl, companyName) {
   console.log(`🔄 scrapeWorkday: POST to ${endpointUrl}`)
   const baseOptions = {
     method: 'POST',
@@ -17,7 +18,6 @@ export async function scrapeWorkday(endpointUrl) {
     },
   }
 
-  // Wrapped fetch that retries on 400 and returns parsed JSON
   async function postFetch(body, url) {
     let response = await fetch(url, { ...baseOptions, body })
     console.log(`🔄 POST ${url} status: ${response.status}`)
@@ -36,17 +36,16 @@ export async function scrapeWorkday(endpointUrl) {
     }
   }
 
-  // Initial fetch with empty body to get default page size and total
   const initial = await postFetch(JSON.stringify({}), endpointUrl)
   if (initial.errorCode) {
     console.error('❌ Workday error response:', initial)
     return []
   }
+
   const total = typeof initial.total === 'number' ? initial.total : null
   let postings = Array.isArray(initial.jobPostings) ? initial.jobPostings : []
-  console.log(`🔄 Found ${postings.length}${total ? ` of ${total}` : ''} jobPostings entries`) // e.g. Found 20 of 593
+  console.log(`🔄 Found ${postings.length}${total ? ` of ${total}` : ''} jobPostings entries`)
 
-  // If multiple pages, iterate pagination
   if (total && postings.length < total) {
     const pageSize = postings.length
     console.log(`🔄 Paginating: pageSize=${pageSize}, total=${total}`)
@@ -63,15 +62,7 @@ export async function scrapeWorkday(endpointUrl) {
     console.log(`🔄 Total postings after pagination: ${postings.length}`)
   }
 
-  // Derive company from hostname (text between https:// and first dot)
-  let companyName = ''
-  try {
-    companyName = new URL(endpointUrl).hostname.split('.')[0]
-  } catch (_) {}
-
-  // Map postings to our schema, including date parsing
   return postings.map(p => {
-    // Convert "Posted X Days Ago" to YYYY-MM-DD
     let datePosted = null
     const rel = p.postedOn || ''
     const m = rel.match(/Posted\s+(\d+)\s+Days?\s+Ago/i)
@@ -96,20 +87,15 @@ export async function scrapeWorkday(endpointUrl) {
 /**
  * (Optional) Scrape jobs from a generic HTML listing page using Cheerio.
  * @param {string} url
+ * @param {string} companyName - human-friendly company name (from sites.name)
  */
-export async function scrapeHTML(url) {
+export async function scrapeHTML(url, companyName) {
   console.log(`🔄 scrapeHTML: GET ${url}`)
   const resp = await fetch(url)
   console.log(`🔄 scrapeHTML status: ${resp.status}`)
   const html = await resp.text()
   const $ = cheerio.load(html)
   const jobs = []
-
-  // Derive company from URL hostname
-  let companyName = ''
-  try {
-    companyName = new URL(url).hostname.split('.')[0]
-  } catch (_) {}
 
   $('.job-listing').each((_, el) => {
     const $el = $(el)
