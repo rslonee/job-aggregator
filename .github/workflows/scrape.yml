@@ -3,14 +3,12 @@
 name: Scrape jobs
 
 on:
-  schedule:
-  workflow_dispatch:   # allows manual trigger from the Actions tab
+  # Only allow manual triggers from the Actions tab
+  workflow_dispatch:
 
 env:
-  # your Supabase project URL and service role key
   SUPABASE_URL:   ${{ secrets.SUPABASE_URL }}
   SUPABASE_KEY:   ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  # comma-separated title filters (leave empty for no filtering)
   TITLE_FILTERS:  "Product,Product Manager,Product Owner,Fraud,Payments"
 
 jobs:
