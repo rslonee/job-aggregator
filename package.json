@@ -1,0 +1,12 @@
+{
+  "name": "job-aggregator",
+  "version": "1.0.0",
+  "scripts": {
+    "scrape": "node scripts/scrape.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "node-fetch": "^2.6.1",
+    "cheerio": "^1.0.0-rc.10"
+  }
+}
