@@ -1,28 +1,34 @@
-import { createClient } from '@supabase/supabase-js'
+// scripts/scrape.js
+
 import { getAllSites, upsertJobsForSite } from './lib/db.js'
 import { scrapeWorkday, scrapeHTML } from './lib/scrapers.js'
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
-
 async function main() {
-  const { data: sites } = await supabase.from('sites').select('*')
-  for (let site of sites) {
-    let jobs = []
-    if (site.scraper_type === 'workday') {
-      jobs = await scrapeWorkday(site.url)
-    } else if (site.scraper_type === 'html') {
-      jobs = await scrapeHTML(site.url)
+  try {
+    const sites = await getAllSites()
+
+    for (const site of sites) {
+      let jobs = []
+
+      if (site.scraper_type === 'workday') {
+        jobs = await scrapeWorkday(site.url)
+      } else if (site.scraper_type === 'html') {
+        jobs = await scrapeHTML(site.url)
+      }
+
+      if (jobs.length > 0) {
+        await upsertJobsForSite(site.id, jobs)
+        console.log(`✅ Upserted ${jobs.length} jobs from "${site.name}"`)
+      } else {
+        console.log(`– No jobs found for "${site.name}"`)
+      }
     }
-    // each job: { job_id, title, company, location, url, date_posted }
-    for (let job of jobs) {
-      await supabase
-        .from('jobs')
-        .upsert({ site_id: site.id, ...job }, { onConflict: ['site_id','job_id'] })
-    }
+
+    process.exit(0)
+  } catch (error) {
+    console.error('🔴 Error during scraping:', error)
+    process.exit(1)
   }
 }
 
-main().catch(err => {
-  console.error(err)
-  process.exit(1)
-})
+main()
