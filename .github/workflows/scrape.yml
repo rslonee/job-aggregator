@@ -3,24 +3,17 @@
 name: Scrape jobs
 
 on:
-  # Only allow manual triggers from the Actions tab
   workflow_dispatch:
 
 env:
   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-  SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-  TITLE_FILTERS:  "Product,Product Manager,Product Owner,Fraud,Payments"
+  SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  TITLE_FILTERS: "Product,Product Manager,Product Owner,Fraud,Payments"
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run scraper
-        run: node scripts/scrape.js
+      - uses: actions/checkout@v3
+      - run: npm install
+      - run: node scripts/scrape.js
