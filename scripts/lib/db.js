@@ -2,20 +2,24 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-// ← use the same secret name you set in your workflow
+// Initialize Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 )
 
 /**
- * Fetch all configured sites from the "sites" table.
- * @returns {Promise<Array>}
+ * Fetch all configured sites from the "sites" table,
+ * including the new base_url field.
+ * @returns {Promise<Array<{id: number, name: string, url: string, scraper_type: string, base_url: string}>>}
  */
 export async function getAllSites() {
-  const { data, error } = await supabase.from('sites').select('*')
+  const { data: sites, error } = await supabase
+    .from('sites')
+    .select('id, name, url, scraper_type, base_url')
+
   if (error) throw error
-  return data
+  return sites
 }
 
 /**
@@ -24,6 +28,8 @@ export async function getAllSites() {
  * @param {Array<Object>} jobs
  */
 export async function upsertJobsForSite(siteId, jobs) {
+  if (!jobs.length) return
+
   const records = jobs.map(job => ({
     site_id: siteId,
     ...job
