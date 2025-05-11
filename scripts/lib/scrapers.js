@@ -1,7 +1,7 @@
 // scripts/lib/scrapers.js
 
 import fetch from 'node-fetch'
-import cheerio from 'cheerio'
+import * as cheerio from 'cheerio'
 
 /**
  * Scrape jobs from a Workday career page.
