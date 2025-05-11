@@ -18,7 +18,7 @@ async function main() {
     for (const site of sites) {
       let jobs = []
 
-      // Branch by scraper_type, now including 'greenhouse'
+      // Fetch according to scraper_type
       switch (site.scraper_type) {
         case 'workday':
           jobs = await scrapeWorkday(site.url, site.name, site.base_url)
@@ -30,7 +30,7 @@ async function main() {
           jobs = await scrapeHTML(site.url, site.name, site.base_url)
           break
         default:
-          console.warn(`⚠️  Unknown scraper_type "${site.scraper_type}" for site "${site.name}"`)
+          console.warn(`⚠️ Unknown scraper_type "${site.scraper_type}" for site "${site.name}"`)
       }
 
       // Apply your title filters
@@ -41,7 +41,15 @@ async function main() {
         })
       }
 
-      console.log(`🔍 Debug "${site.name}" after filter returned ${jobs.length} jobs`)
+      // *** Dedupe by job_id to avoid ON CONFLICT errors ***
+      const seen = new Set()
+      jobs = jobs.filter(job => {
+        if (seen.has(job.job_id)) return false
+        seen.add(job.job_id)
+        return true
+      })
+
+      console.log(`🔍 Debug "${site.name}" after filter & dedupe returned ${jobs.length} jobs`)
 
       if (jobs.length) {
         await upsertJobsForSite(site.id, jobs)
