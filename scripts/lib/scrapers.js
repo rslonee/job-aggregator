@@ -4,118 +4,119 @@ import fetch from 'node-fetch'
 import * as cheerio from 'cheerio'
 
 /**
- * Scrape jobs from a Workday career page via POST, with full pagination support.
- * @param {string} endpointUrl - full POST endpoint, e.g., .../jobs
- * @param {string} companyName - human-friendly company name (from sites.name)
+ * Scrape all jobs from a Workday career page via POST, paging through total count.
+ * @param {string} endpointUrl – the /jobs POST endpoint
+ * @param {string} companyName – the human-friendly name from sites.name
+ * @param {string} baseUrl – prefix to prepend to each partial job URL
  */
-export async function scrapeWorkday(endpointUrl, companyName) {
+export async function scrapeWorkday(endpointUrl, companyName, baseUrl) {
   console.log(`🔄 scrapeWorkday: POST to ${endpointUrl}`)
-  const baseOptions = {
+
+  // first POST to get total and initial batch
+  const commonOpts = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
+    body: JSON.stringify({}),
   }
 
-  async function postFetch(body, url) {
-    let response = await fetch(url, { ...baseOptions, body })
-    console.log(`🔄 POST ${url} status: ${response.status}`)
-    if (response.status === 400) {
-      const retryUrl = url.endsWith('/') ? url : `${url}/`
-      console.warn(`⚠️ Received 400, retrying with trailing slash: ${retryUrl}`)
-      response = await fetch(retryUrl, { ...baseOptions, body })
-      console.log(`🔄 Retry status: ${response.status}`)
-    }
-    const text = await response.text()
-    try {
-      return JSON.parse(text)
-    } catch (err) {
-      console.error(`❌ Failed to parse JSON. Response start: ${text.slice(0,200)}`)
-      throw err
-    }
+  let resp = await fetch(endpointUrl, commonOpts)
+  console.log(`🔄 Response status: ${resp.status}`)
+
+  if (resp.status === 400) {
+    const retryUrl = endpointUrl.endsWith('/') ? endpointUrl : `${endpointUrl}/`
+    console.warn(`⚠️ Received 400, retrying with trailing slash: ${retryUrl}`)
+    resp = await fetch(retryUrl, commonOpts)
+    console.log(`🔄 Retry response status: ${resp.status}`)
   }
 
-  const initial = await postFetch(JSON.stringify({}), endpointUrl)
-  if (initial.errorCode) {
-    console.error('❌ Workday error response:', initial)
+  const json = await resp.json()
+  if (json.errorCode) {
+    console.error('❌ Workday error response:', json)
     return []
   }
 
-  const total = typeof initial.total === 'number' ? initial.total : null
-  let postings = Array.isArray(initial.jobPostings) ? initial.jobPostings : []
-  console.log(`🔄 Found ${postings.length}${total ? ` of ${total}` : ''} jobPostings entries`)
+  const total    = json.total || 0
+  const batch    = Array.isArray(json.jobPostings) ? json.jobPostings : []
+  console.log(`🔄 Found total=${total}, first batch length=${batch.length}`)
 
-  if (total && postings.length < total) {
-    const pageSize = postings.length
-    console.log(`🔄 Paginating: pageSize=${pageSize}, total=${total}`)
-    let all = postings
-    for (let offset = pageSize; offset < total; offset += pageSize) {
-      console.log(`🔄 Fetch page offset ${offset}`)
-      const pageBody = JSON.stringify({ limit: pageSize, offset, searchText: '' })
-      const pageJson = await postFetch(pageBody, endpointUrl)
-      const pagePosts = Array.isArray(pageJson.jobPostings) ? pageJson.jobPostings : []
-      console.log(`🔄 Page returned ${pagePosts.length} entries`)
-      all = all.concat(pagePosts)
-    }
-    postings = all
-    console.log(`🔄 Total postings after pagination: ${postings.length}`)
+  // if total > batch.length, page through using offset param
+  let all = batch.slice()
+  let offset = batch.length
+  while (offset < total) {
+    console.log(`🔄 Fetching offset ${offset}`)
+    const pagedResp = await fetch(endpointUrl, {
+      ...commonOpts,
+      body: JSON.stringify({ offset })
+    })
+    const pageJson = await pagedResp.json()
+    const pageBatch = Array.isArray(pageJson.jobPostings) ? pageJson.jobPostings : []
+    console.log(`🔄   got ${pageBatch.length} more`)
+    if (!pageBatch.length) break
+    all = all.concat(pageBatch)
+    offset += pageBatch.length
   }
+  console.log(`🔄 scrapeWorkday: totaling ${all.length} postings`)
 
-  return postings.map(p => {
-    let datePosted = null
-    const rel = p.postedOn || ''
-    const m = rel.match(/Posted\s+(\d+)\s+Days?\s+Ago/i)
-    if (m) {
-      const days = parseInt(m[1], 10)
-      const d = new Date()
-      d.setDate(d.getDate() - days)
-      datePosted = d.toISOString().split('T')[0]
-    }
-
-    return {
-      job_id:      Array.isArray(p.bulletFields) && p.bulletFields[0] ? p.bulletFields[0] : p.externalPath,
-      title:       p.title,
-      company:     companyName,
-      location:    p.locationsText,
-      url:         p.externalPath,
-      date_posted: datePosted,
-    }
-  })
+  return all.map(p => ({
+    job_id:      Array.isArray(p.bulletFields) && p.bulletFields[0] ? p.bulletFields[0] : p.externalPath,
+    title:       p.title,
+    company:     companyName,
+    location:    p.locationsText,
+    url:         `${baseUrl}${p.externalPath}`,
+    date_posted: parsePostedDate(p.postedOn),  // assume you have this helper
+  }))
 }
 
 /**
  * (Optional) Scrape jobs from a generic HTML listing page using Cheerio.
- * @param {string} url
- * @param {string} companyName - human-friendly company name (from sites.name)
+ * @param {string} url – the page to GET
+ * @param {string} companyName – from sites.name
+ * @param {string} baseUrl – prefix for relative links
  */
-export async function scrapeHTML(url, companyName) {
+export async function scrapeHTML(url, companyName, baseUrl) {
   console.log(`🔄 scrapeHTML: GET ${url}`)
   const resp = await fetch(url)
-  console.log(`🔄 scrapeHTML status: ${resp.status}`)
+  console.log(`🔄 scrapeHTML Response status: ${resp.status}`)
   const html = await resp.text()
   const $ = cheerio.load(html)
   const jobs = []
 
+  // Customize selectors for your target site
   $('.job-listing').each((_, el) => {
-    const $el = $(el)
-    const title = $el.find('.job-title').text().trim()
-    const link = $el.find('a').attr('href') || ''
-    const jobUrl = link.startsWith('http') ? link : new URL(link, url).href
-    const jobId = $el.attr('data-id') || jobUrl
+    const $el      = $(el)
+    const title    = $el.find('.job-title').text().trim()
+    const link     = $el.find('a').attr('href') || ''
+    const path     = link.startsWith('http') ? link : new URL(link, url).pathname
+    const jobId    = $el.attr('data-id') || path
+    const company  = companyName
     const location = $el.find('.location').text().trim()
     const dateText = $el.find('.date-posted').text().trim()
 
     jobs.push({
       job_id:      jobId,
       title,
-      company:     companyName,
+      company,
       location,
-      url:         jobUrl,
+      url:         `${baseUrl}${path}`,
       date_posted: dateText,
     })
   })
 
   console.log(`🔄 scrapeHTML: Found ${jobs.length} entries`)
   return jobs
+}
+
+/** helper to turn “Posted 2 Days Ago” into YYYY-MM-DD */
+function parsePostedDate(text) {
+  const match = text.match(/(\d+)\s+Day/)
+  if (match) {
+    const days = parseInt(match[1], 10)
+    const d = new Date()
+    d.setDate(d.getDate() - days)
+    return d.toISOString().split('T')[0]
+  }
+  return text  // fallback
 }
