@@ -4,31 +4,50 @@ import fetch from 'node-fetch'
 import * as cheerio from 'cheerio'
 
 /**
- * Scrape jobs from a Workday career page via POST, with debug logging.
+ * Scrape jobs from a Workday career page via POST, with debug and retry logic.
  * @param {string} endpointUrl - full POST endpoint, e.g., .../jobs
  */
 export async function scrapeWorkday(endpointUrl) {
   console.log(`🔄 scrapeWorkday: POST to ${endpointUrl}`)
-  const resp = await fetch(endpointUrl, {
+  const requestOptions = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: JSON.stringify({ limit: 100, offset: 0, searchText: '' }),
-  })
+    body: JSON.stringify({}),
+  }
+  // First attempt
+  let resp = await fetch(endpointUrl, requestOptions)
   console.log(`🔄 Response status: ${resp.status}`)
+
+  // Retry with trailing slash if initial 400
+  if (resp.status === 400) {
+    const retryUrl = endpointUrl.endsWith('/') ? endpointUrl : `${endpointUrl}/`
+    console.warn(`⚠️ Received 400, retrying with trailing slash: ${retryUrl}`)
+    resp = await fetch(retryUrl, requestOptions)
+    console.log(`🔄 Retry response status: ${resp.status}`)
+  }
+
+  const text = await resp.text()
   let json
   try {
-    json = await resp.json()
+    json = JSON.parse(text)
   } catch (err) {
-    const text = await resp.text()
     console.error(`❌ scrapeWorkday: Failed to parse JSON. Response starts: ${text.slice(0, 200)}`)
     throw err
   }
+
+  // Log error payload if present
+  if (json.errorCode) {
+    console.error('❌ Workday error response:', json)
+    return []
+  }
+
   console.log(`🔄 JSON keys: ${Object.keys(json).join(', ')}`)
   const postings = Array.isArray(json.jobPostings) ? json.jobPostings : []
   console.log(`🔄 Found ${postings.length} jobPostings entries`)
+
   return postings.map(p => ({
     job_id:      Array.isArray(p.bulletFields) && p.bulletFields[0] ? p.bulletFields[0] : p.externalPath,
     title:       p.title,
