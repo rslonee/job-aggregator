@@ -4,60 +4,63 @@ import fetch from 'node-fetch'
 import * as cheerio from 'cheerio'
 
 /**
- * Scrape jobs from a Workday career page via POST, with debug, retry, and pagination logic.
+ * Scrape jobs from a Workday career page via POST, with full pagination support.
  * @param {string} endpointUrl - full POST endpoint, e.g., .../jobs
  */
 export async function scrapeWorkday(endpointUrl) {
   console.log(`🔄 scrapeWorkday: POST to ${endpointUrl}`)
-  const requestOptions = {
+  const baseOptions = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: JSON.stringify({}),
   }
 
-  // Helper to POST and parse JSON, with retry logic
-  async function postFetch(options, url) {
-    let response = await fetch(url, options)
+  // Wrapped fetch that retries on 400 and returns parsed JSON
+  async function postFetch(body, url) {
+    let response = await fetch(url, { ...baseOptions, body })
     console.log(`🔄 POST ${url} status: ${response.status}`)
     if (response.status === 400) {
       const retryUrl = url.endsWith('/') ? url : `${url}/`
       console.warn(`⚠️ Received 400, retrying with trailing slash: ${retryUrl}`)
-      response = await fetch(retryUrl, options)
+      response = await fetch(retryUrl, { ...baseOptions, body })
       console.log(`🔄 Retry status: ${response.status}`)
     }
     const text = await response.text()
-    let data
     try {
-      data = JSON.parse(text)
+      return JSON.parse(text)
     } catch (err) {
-      console.error(`❌ Failed to parse JSON. Response starts: ${text.slice(0, 200)}`)
+      console.error(`❌ Failed to parse JSON. Response start: ${text.slice(0,200)}`)
       throw err
     }
-    return data
   }
 
-  // First fetch
-  const json = await postFetch(requestOptions, endpointUrl)
-  if (json.errorCode) {
-    console.error('❌ Workday error response:', json)
+  // Initial fetch with empty body to get default page size and total
+  const initial = await postFetch(JSON.stringify({}), endpointUrl)
+  if (initial.errorCode) {
+    console.error('❌ Workday error response:', initial)
     return []
   }
-  console.log(`🔄 JSON keys: ${Object.keys(json).join(', ')}`)
+  const total = typeof initial.total === 'number' ? initial.total : null
+  let postings = Array.isArray(initial.jobPostings) ? initial.jobPostings : []
+  console.log(`🔄 Found ${postings.length}${total ? ` of ${total}` : ''} jobPostings entries`) // e.g. Found 20 of 593
 
-  const total = typeof json.total === 'number' ? json.total : null
-  let postings = Array.isArray(json.jobPostings) ? json.jobPostings : []
-  console.log(`🔄 Found ${postings.length} of ${total ?? postings.length} jobPostings entries`)
-
-  // If more pages exist, fetch all in one go (using total as limit)
+  // If multiple pages, iterate pagination
   if (total && postings.length < total) {
-    console.log(`🔄 Fetching all jobs with limit ${total}`)
-    const fullOptions = { ...requestOptions, body: JSON.stringify({ limit: total, offset: 0, searchText: '' }) }
-    const fullJson = await postFetch(fullOptions, endpointUrl)
-    postings = Array.isArray(fullJson.jobPostings) ? fullJson.jobPostings : postings
-    console.log(`🔄 After full fetch, entries: ${postings.length}`)
+    const pageSize = postings.length
+    console.log(`🔄 Paginating: pageSize=${pageSize}, total=${total}`)
+    let all = postings
+    for (let offset = pageSize; offset < total; offset += pageSize) {
+      console.log(`🔄 Fetch page offset ${offset}`)
+      const pageBody = JSON.stringify({ limit: pageSize, offset, searchText: '' })
+      const pageJson = await postFetch(pageBody, endpointUrl)
+      const pagePosts = Array.isArray(pageJson.jobPostings) ? pageJson.jobPostings : []
+      console.log(`🔄 Page returned ${pagePosts.length} entries`)
+      all = all.concat(pagePosts)
+    }
+    postings = all
+    console.log(`🔄 Total postings after pagination: ${postings.length}`)
   }
 
   // Derive company from hostname (text between https:// and first dot)
@@ -66,13 +69,14 @@ export async function scrapeWorkday(endpointUrl) {
     companyName = new URL(endpointUrl).hostname.split('.')[0]
   } catch (_) {}
 
+  // Map postings to our schema, including date parsing
   return postings.map(p => {
     // Convert "Posted X Days Ago" to YYYY-MM-DD
     let datePosted = null
     const rel = p.postedOn || ''
-    const match = rel.match(/Posted\s+(\d+)\s+Days?\s+Ago/i)
-    if (match) {
-      const days = parseInt(match[1], 10)
+    const m = rel.match(/Posted\s+(\d+)\s+Days?\s+Ago/i)
+    if (m) {
+      const days = parseInt(m[1], 10)
       const d = new Date()
       d.setDate(d.getDate() - days)
       datePosted = d.toISOString().split('T')[0]
@@ -96,7 +100,7 @@ export async function scrapeWorkday(endpointUrl) {
 export async function scrapeHTML(url) {
   console.log(`🔄 scrapeHTML: GET ${url}`)
   const resp = await fetch(url)
-  console.log(`🔄 scrapeHTML Response status: ${resp.status}`)
+  console.log(`🔄 scrapeHTML status: ${resp.status}`)
   const html = await resp.text()
   const $ = cheerio.load(html)
   const jobs = []
