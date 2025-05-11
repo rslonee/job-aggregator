@@ -1,12 +1,17 @@
 // scripts/lib/db.js
+
 import { createClient } from '@supabase/supabase-js'
 
+// ← use the same secret name you set in your workflow
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_KEY
 )
 
-/** Fetch all configured sites */
+/**
+ * Fetch all configured sites from the "sites" table.
+ * @returns {Promise<Array>}
+ */
 export async function getAllSites() {
   const { data, error } = await supabase.from('sites').select('*')
   if (error) throw error
@@ -14,17 +19,19 @@ export async function getAllSites() {
 }
 
 /**
- * Upsert a batch of jobs for a given site
+ * Upsert a batch of jobs for a given site into the "jobs" table.
  * @param {number} siteId
  * @param {Array<Object>} jobs
  */
 export async function upsertJobsForSite(siteId, jobs) {
-  for (let job of jobs) {
-    await supabase
-      .from('jobs')
-      .upsert(
-        { site_id: siteId, ...job },
-        { onConflict: ['site_id', 'job_id'] }
-      )
-  }
+  const records = jobs.map(job => ({
+    site_id: siteId,
+    ...job
+  }))
+
+  const { error } = await supabase
+    .from('jobs')
+    .upsert(records, { onConflict: ['site_id', 'job_id'] })
+
+  if (error) throw error
 }
