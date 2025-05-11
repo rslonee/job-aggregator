@@ -6,13 +6,11 @@ import * as cheerio from 'cheerio'
 /**
  * Scrape all jobs from a Workday career page via POST, paging through total count.
  * @param {string} endpointUrl – the /jobs POST endpoint
- * @param {string} companyName – the human-friendly name from sites.name
+ * @param {string} companyName – from sites.name
  * @param {string} baseUrl – prefix to prepend to each partial job URL
  */
 export async function scrapeWorkday(endpointUrl, companyName, baseUrl) {
   console.log(`🔄 scrapeWorkday: POST to ${endpointUrl}`)
-
-  // first POST to get total and initial batch
   const commonOpts = {
     method: 'POST',
     headers: {
@@ -22,9 +20,11 @@ export async function scrapeWorkday(endpointUrl, companyName, baseUrl) {
     body: JSON.stringify({}),
   }
 
+  // initial request
   let resp = await fetch(endpointUrl, commonOpts)
   console.log(`🔄 Response status: ${resp.status}`)
 
+  // retry with trailing slash if needed
   if (resp.status === 400) {
     const retryUrl = endpointUrl.endsWith('/') ? endpointUrl : `${endpointUrl}/`
     console.warn(`⚠️ Received 400, retrying with trailing slash: ${retryUrl}`)
@@ -38,11 +38,11 @@ export async function scrapeWorkday(endpointUrl, companyName, baseUrl) {
     return []
   }
 
-  const total    = json.total || 0
-  const batch    = Array.isArray(json.jobPostings) ? json.jobPostings : []
+  const total = json.total || 0
+  const batch = Array.isArray(json.jobPostings) ? json.jobPostings : []
   console.log(`🔄 Found total=${total}, first batch length=${batch.length}`)
 
-  // if total > batch.length, page through using offset param
+  // page through the rest
   let all = batch.slice()
   let offset = batch.length
   while (offset < total) {
@@ -66,15 +66,15 @@ export async function scrapeWorkday(endpointUrl, companyName, baseUrl) {
     company:     companyName,
     location:    p.locationsText,
     url:         `${baseUrl}${p.externalPath}`,
-    date_posted: parsePostedDate(p.postedOn),  // assume you have this helper
+    date_posted: parsePostedDate(p.postedOn),
   }))
 }
 
 /**
- * (Optional) Scrape jobs from a generic HTML listing page using Cheerio.
- * @param {string} url – the page to GET
- * @param {string} companyName – from sites.name
- * @param {string} baseUrl – prefix for relative links
+ * Scrape jobs from a generic HTML listing page using Cheerio.
+ * @param {string} url
+ * @param {string} companyName
+ * @param {string} baseUrl
  */
 export async function scrapeHTML(url, companyName, baseUrl) {
   console.log(`🔄 scrapeHTML: GET ${url}`)
@@ -84,24 +84,22 @@ export async function scrapeHTML(url, companyName, baseUrl) {
   const $ = cheerio.load(html)
   const jobs = []
 
-  // Customize selectors for your target site
   $('.job-listing').each((_, el) => {
     const $el      = $(el)
     const title    = $el.find('.job-title').text().trim()
     const link     = $el.find('a').attr('href') || ''
     const path     = link.startsWith('http') ? link : new URL(link, url).pathname
     const jobId    = $el.attr('data-id') || path
-    const company  = companyName
     const location = $el.find('.location').text().trim()
     const dateText = $el.find('.date-posted').text().trim()
 
     jobs.push({
       job_id:      jobId,
       title,
-      company,
+      company:     companyName,
       location,
       url:         `${baseUrl}${path}`,
-      date_posted: dateText,
+      date_posted: parsePostedDate(dateText),
     })
   })
 
@@ -109,14 +107,18 @@ export async function scrapeHTML(url, companyName, baseUrl) {
   return jobs
 }
 
-/** helper to turn “Posted 2 Days Ago” into YYYY-MM-DD */
+/** 
+ * Convert "Posted X Days Ago" (including "30+ Days Ago") into a YYYY-MM-DD date.
+ * Falls back to today if unparsable.
+ */
 function parsePostedDate(text) {
-  const match = text.match(/(\d+)\s+Day/)
+  const match = text.match(/(\d+)\+?\s+Day/)
   if (match) {
     const days = parseInt(match[1], 10)
     const d = new Date()
     d.setDate(d.getDate() - days)
     return d.toISOString().split('T')[0]
   }
-  return text  // fallback
+  // fallback: use today
+  return new Date().toISOString().split('T')[0]
 }
