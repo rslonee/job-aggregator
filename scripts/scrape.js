@@ -32,3 +32,24 @@ async function main() {
 }
 
 main()
+
+
+   for (const site of sites) {
+     let jobs = []
+
+     if (site.scraper_type === 'workday') {
+       jobs = await scrapeWorkday(site.url)
+     } else if (site.scraper_type === 'html') {
+       jobs = await scrapeHTML(site.url)
+     }
+
++    console.log(`🔍 Debug "${site.name}" scrape returned ${jobs.length} jobs`, jobs)
+
+     if (jobs.length > 0) {
+       await upsertJobsForSite(site.id, jobs)
+       console.log(`✅ Upserted ${jobs.length} jobs from "${site.name}"`)
+     } else {
+       console.log(`– No jobs found for "${site.name}"`)
+     }
+   }
+
