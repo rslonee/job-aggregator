@@ -17,6 +17,7 @@ export async function scrapeWorkday(endpointUrl) {
     },
     body: JSON.stringify({}),
   }
+
   // First attempt
   let resp = await fetch(endpointUrl, requestOptions)
   console.log(`🔄 Response status: ${resp.status}`)
@@ -48,14 +49,27 @@ export async function scrapeWorkday(endpointUrl) {
   const postings = Array.isArray(json.jobPostings) ? json.jobPostings : []
   console.log(`🔄 Found ${postings.length} jobPostings entries`)
 
-  return postings.map(p => ({
-    job_id:      Array.isArray(p.bulletFields) && p.bulletFields[0] ? p.bulletFields[0] : p.externalPath,
-    title:       p.title,
-    company:     '',  // or set to site.name as desired
-    location:    p.locationsText,
-    url:         p.externalPath,
-    date_posted: p.postedOn,
-  }))
+  return postings.map(p => {
+    // Parse the "Posted X Days Ago" into a YYYY-MM-DD string
+    let datePosted = null
+    const rel = p.postedOn || ''
+    const match = rel.match(/Posted\s+(\d+)\s+Days?\s+Ago/i)
+    if (match) {
+      const days = parseInt(match[1], 10)
+      const d = new Date()
+      d.setDate(d.getDate() - days)
+      datePosted = d.toISOString().split('T')[0]
+    }
+
+    return {
+      job_id:      Array.isArray(p.bulletFields) && p.bulletFields[0] ? p.bulletFields[0] : p.externalPath,
+      title:       p.title,
+      company:     '',  // or set to site.name as desired
+      location:    p.locationsText,
+      url:         p.externalPath,
+      date_posted: datePosted,
+    }
+  })
 }
 
 /**
