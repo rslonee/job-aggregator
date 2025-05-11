@@ -87,13 +87,13 @@ export async function scrapeGreenhouse(apiUrl, companyName) {
     company:     companyName,
     location:    p.location || (p.metadata?.location || []).join(', '),
     url:         p.absolute_url,
-    date_posted: p.updated_at ? p.updated_at.split('T')[0] : null,
+    date_posted: p.updated_at ? p.updated_at.split('T')[0] : new Date().toISOString().split('T')[0],
   }))
 }
 
 
 /**
- * (Optional) Scrape jobs from a generic HTML listing page using Cheerio.
+ * Scrape jobs from a generic HTML listing page using Cheerio.
  * @param {string} pageUrl – the page to GET
  * @param {string} companyName – from sites.name
  * @param {string} baseUrl – prefix for relative links
@@ -133,9 +133,13 @@ export async function scrapeHTML(pageUrl, companyName, baseUrl) {
 
 /**
  * Helper: Converts "Posted X Days Ago" (including "30+ Days Ago") into YYYY-MM-DD.
- * Falls back to today for unrecognized formats.
+ * Safely handles undefined or unexpected formats by falling back to today.
  */
 function parsePostedDate(text) {
+  if (typeof text !== 'string') {
+    // missing or not a string → use today's date
+    return new Date().toISOString().split('T')[0]
+  }
   const match = text.match(/(\d+)\+?\s+Day/)
   if (match) {
     const days = parseInt(match[1], 10)
@@ -143,6 +147,6 @@ function parsePostedDate(text) {
     d.setDate(d.getDate() - days)
     return d.toISOString().split('T')[0]
   }
-  // Fallback to today
+  // unrecognized format → fallback to today
   return new Date().toISOString().split('T')[0]
 }
