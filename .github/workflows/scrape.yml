@@ -1,0 +1,21 @@
+name: Scrape jobs
+
+on:
+  schedule:
+    - cron:  '*/60 * * * *'   # every 60 minutes
+  workflow_dispatch:        # manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run scraper
+        run: node scripts/scrape.js
