@@ -8,7 +8,7 @@ on:
 env:
   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
   SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  TITLE_FILTERS: "Product,Product Manager,Product Owner,Fraud,Payments"
+  TITLE_FILTERS: ""
 
 jobs:
   scrape:
