@@ -59,4 +59,46 @@ class WorkdayScraper extends BaseScraper {
     }
 }
 
-export { BaseScraper, WorkdayScraper };
+// Greenhouse Scraper (GET)
+class GreenhouseScraper extends BaseScraper {
+    async scrapeJobs() {
+        const jobs = [];
+        const page = await this.fetchPage(this.baseUrl);
+        if (!page || !page.jobs) return jobs;
+
+        jobs.push(...page.jobs.map(job => ({
+            job_id: job.id,
+            title: job.title,
+            location: job.location,
+            url: job.absolute_url,
+            date_posted: job.updated_at
+        })));
+
+        console.log(`✅ Retrieved ${jobs.length} jobs from Greenhouse.`);
+        return jobs;
+    }
+}
+
+// HTML Scraper (GET)
+class HTMLScraper extends BaseScraper {
+    async scrapeJobs() {
+        const jobs = [];
+        const page = await this.fetchPage(this.baseUrl);
+        if (!page) return jobs;
+
+        const $ = cheerio.load(page);
+        $('.job-listing').each((_, el) => {
+            jobs.push({
+                job_id: $(el).attr('data-id'),
+                title: $(el).find('.job-title').text().trim(),
+                location: $(el).find('.location').text().trim(),
+                url: $(el).find('a').attr('href')
+            });
+        });
+
+        console.log(`✅ Retrieved ${jobs.length} jobs from HTML.`);
+        return jobs;
+    }
+}
+
+export { BaseScraper, WorkdayScraper, GreenhouseScraper, HTMLScraper };
