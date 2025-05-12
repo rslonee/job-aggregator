@@ -10,11 +10,11 @@ def run_all_scrapes():
     Loads site definitions from your DB/config and iterates over them,
     scraping each in turn and upserting the results.
     """
-    sites = load_sites_config()  # should return a list of dicts with id, scraper_type, url, etc.
+    sites = load_sites_config()  # should return a list of dicts with id, scraper_type, url
 
     for site in sites:
         print(f"⏳  Scraping site id={site['id']} ({site['scraper_type']}) @ {site['url']}")
-        # pass the entire site dict so each scraper (especially Ashby) has access to url, name, etc.
+        # pass the full site dict, not just the URL
         scraper = get_scraper(site["scraper_type"], site)
         try:
             jobs = scraper.list_job_posts()
