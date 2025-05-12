@@ -1,9 +1,13 @@
 # job_aggregator/scrapers/__init__.py
 
+"""
+Initialize scraper registry and factory.
+"""
 from .ashby import AshbyScraper
 # from .workday import WorkdayScraper
 # from .greenhouse import GreenhouseScraper
 
+# Map normalized scraper_type to scraper class
 SCRAPER_MAP = {
     "ashby": AshbyScraper,
     # "workday": WorkdayScraper,
@@ -12,10 +16,16 @@ SCRAPER_MAP = {
 
 def get_scraper(scraper_type: str, base_url: str):
     """
-    Factory: returns an instance of the correct scraper.
+    Factory: returns an instance of the correct scraper based on scraper_type.
+    Raises KeyError if no matching scraper exists.
     """
-    key = scraper_type.lower()
-    cls = SCRAPER_MAP.get(key)
-    if not cls:
-        raise KeyError(f"Unknown scraper_type '{scraper_type}' for site")
+    # Normalize key
+    key = scraper_type.strip().lower()
+    if key not in SCRAPER_MAP:
+        available = ", ".join(sorted(SCRAPER_MAP.keys()))
+        raise KeyError(
+            f"Unknown scraper_type '{scraper_type}' for site. "
+            f"Available types: {available}"
+        )
+    cls = SCRAPER_MAP[key]
     return cls(base_url)
