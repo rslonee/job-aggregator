@@ -40,11 +40,11 @@ class BaseScraper {
 class WorkdayScraper extends BaseScraper {
     async scrapeJobs() {
         const jobs = [];
-        let pageNum = 1;
+        let offset = 0;
 
         try {
             while (true) {
-                const page = await this.fetchPage(`${this.baseUrl}`, 'POST');
+                const page = await this.fetchPage(`${this.baseUrl}?offset=${offset}`, 'POST');
                 if (!page || !page.jobPostings) break;
 
                 jobs.push(...page.jobPostings.map(job => ({
@@ -55,7 +55,7 @@ class WorkdayScraper extends BaseScraper {
                 })));
 
                 if (page.jobPostings.length < 20) break; // Last page
-                pageNum++;
+                offset += 20; // Adjust offset for next page
             }
 
             console.log(`✅ Retrieved ${jobs.length} jobs from Workday using POST.`);
