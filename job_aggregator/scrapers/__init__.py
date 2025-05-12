@@ -16,7 +16,9 @@ def get_scraper(scraper_type: str, site: dict):
       - scraper_type: string key in SCRAPERS
       - site: full site dict from load_sites_config()
     """
-    cls = SCRAPERS.get(scraper_type)
+    # normalize to lowercase and strip whitespace
+    key = str(scraper_type).strip().lower()
+    cls = SCRAPERS.get(key)
     if not cls:
         raise ValueError(f'Unknown scraper_type "{scraper_type}"')
     return cls(site)
