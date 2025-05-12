@@ -1,4 +1,4 @@
-// job-aggregator/scrapers/ashby.js
+// job_aggregator/scrapers/ashby.js
 const BaseScraper = require('./base');
 
 class AshbyScraper extends BaseScraper {
@@ -7,7 +7,6 @@ class AshbyScraper extends BaseScraper {
   }
 
   async fetchJobs() {
-    // example: Ashby exposes a GraphQL endpoint at /graphql
     const query = `{
       jobs {
         id
@@ -17,7 +16,10 @@ class AshbyScraper extends BaseScraper {
         postedAt
       }
     }`;
-    const res = await this.http.post(`${this.site.url}/graphql`, { query });
+    const res = await this.http.post(
+      `${this.site.url}/graphql`,
+      { query }
+    );
     return res.data.jobs.map(job => ({
       id: job.id,
       title: job.title,
