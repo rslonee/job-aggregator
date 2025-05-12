@@ -7,10 +7,10 @@ from .ashby        import AshbyScraper
 SCRAPERS = {
     "workday":    WorkdayScraper,
     "greenhouse": GreenhouseScraper,
-    "ashby":      AshbyScraper,   # ← register ashby here
+    "ashby":      AshbyScraper,
 }
 
-def get_scraper(scraper_type, site):
+def get_scraper(scraper_type: str, site: dict):
     """
     Returns an instance of the scraper class for this site.
       - scraper_type: string key in SCRAPERS
@@ -18,6 +18,5 @@ def get_scraper(scraper_type, site):
     """
     cls = SCRAPERS.get(scraper_type)
     if not cls:
-        raise ValueError(f"Unknown scraper_type \"{scraper_type}\"")
-    # All scrapers now expect the full `site` dict
+        raise ValueError(f'Unknown scraper_type "{scraper_type}"')
     return cls(site)
