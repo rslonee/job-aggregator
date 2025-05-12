@@ -1,31 +1,23 @@
 # job_aggregator/scrapers/__init__.py
 
-"""
-Initialize scraper registry and factory.
-"""
-from .ashby import AshbyScraper
-# from .workday import WorkdayScraper
-# from .greenhouse import GreenhouseScraper
+from .workday      import WorkdayScraper
+from .greenhouse   import GreenhouseScraper
+from .ashby        import AshbyScraper
 
-# Map normalized scraper_type to scraper class
-SCRAPER_MAP = {
-    "ashby": AshbyScraper,
-    # "workday": WorkdayScraper,
-    # "greenhouse": GreenhouseScraper,
+SCRAPERS = {
+    "workday":    WorkdayScraper,
+    "greenhouse": GreenhouseScraper,
+    "ashby":      AshbyScraper,   # ← register ashby here
 }
 
-def get_scraper(scraper_type: str, base_url: str):
+def get_scraper(scraper_type, site):
     """
-    Factory: returns an instance of the correct scraper based on scraper_type.
-    Raises KeyError if no matching scraper exists.
+    Returns an instance of the scraper class for this site.
+      - scraper_type: string key in SCRAPERS
+      - site: full site dict from load_sites_config()
     """
-    # Normalize key
-    key = scraper_type.strip().lower()
-    if key not in SCRAPER_MAP:
-        available = ", ".join(sorted(SCRAPER_MAP.keys()))
-        raise KeyError(
-            f"Unknown scraper_type '{scraper_type}' for site. "
-            f"Available types: {available}"
-        )
-    cls = SCRAPER_MAP[key]
-    return cls(base_url)
+    cls = SCRAPERS.get(scraper_type)
+    if not cls:
+        raise ValueError(f"Unknown scraper_type \"{scraper_type}\"")
+    # All scrapers now expect the full `site` dict
+    return cls(site)
