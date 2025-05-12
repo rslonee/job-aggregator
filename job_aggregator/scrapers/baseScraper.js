@@ -5,13 +5,14 @@ class BaseScraper {
         this.baseUrl = baseUrl;
     }
 
-    async fetchPage(url, method = 'POST') {
+    async fetchPage(url, method = 'POST', body = null) {
         try {
             const options = {
                 method: method,
                 headers: {
                     'Content-Type': 'application/json'
-                }
+                },
+                body: body ? JSON.stringify(body) : undefined
             };
 
             const response = await fetch(url, options);
@@ -35,23 +36,26 @@ class BaseScraper {
     }
 }
 
-// Workday Scraper with POST Only
+// Workday Scraper with Pagination
 class WorkdayScraper extends BaseScraper {
     async scrapeJobs() {
         const jobs = [];
+        let pageNum = 1;
+
         try {
-            const page = await this.fetchPage(`${this.baseUrl}`, 'POST');
+            while (true) {
+                const page = await this.fetchPage(`${this.baseUrl}`, 'POST');
+                if (!page || !page.jobPostings) break;
 
-            if (!page) return jobs;
-
-            // Check if JSON and contains jobs
-            if (page.jobPostings) {
                 jobs.push(...page.jobPostings.map(job => ({
                     title: job.title,
                     url: this.baseUrl + job.externalPath,
                     location: job.locationsText,
-                    date_posted: job.postedOn
+                    date_posted: this.formatDate(job.postedOn)
                 })));
+
+                if (page.jobPostings.length < 20) break; // Last page
+                pageNum++;
             }
 
             console.log(`✅ Retrieved ${jobs.length} jobs from Workday using POST.`);
@@ -60,6 +64,16 @@ class WorkdayScraper extends BaseScraper {
         }
 
         return jobs;
+    }
+
+    formatDate(dateString) {
+        if (dateString.includes("Today")) return new Date().toISOString().split("T")[0];
+        if (dateString.includes("Yesterday")) {
+            const date = new Date();
+            date.setDate(date.getDate() - 1);
+            return date.toISOString().split("T")[0];
+        }
+        return dateString; // Default if already formatted
     }
 }
 
