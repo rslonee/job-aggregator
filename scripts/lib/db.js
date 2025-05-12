@@ -1,6 +1,10 @@
-// Enhanced Database Interaction Module
+// Enhanced Database Interaction Module with Debugging
 
 import { createClient } from '@supabase/supabase-js';
+
+// Debug: Log API Key (first 8 characters, safely)
+console.log(`🔧 Debug: Supabase API Key (truncated): ${process.env.SUPABASE_KEY?.substring(0, 8)}...`);
+console.log(`🔧 Debug: Supabase URL: ${process.env.SUPABASE_URL}`);
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -30,7 +34,7 @@ async function upsertJobsForSite(siteId, jobs) {
     }
 }
 
-// Enhanced Function to Fetch Sites with Error Handling
+// Enhanced Function to Fetch Sites with Debugging
 async function getAllSites() {
     try {
         const { data: sites, error } = await supabase
