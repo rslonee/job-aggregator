@@ -1,4 +1,4 @@
-// Database Interaction Module
+// Enhanced Database Interaction Module
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -18,9 +18,9 @@ async function upsertJobsForSite(siteId, jobs) {
             .upsert(batch.map(job => ({ site_id: siteId, ...job })), { onConflict: ['site_id', 'job_id'] });
 
         if (error) {
-            console.error(`❌ Failed to upsert batch of jobs for site ${siteId}:`, error);
+            console.error(`[${new Date().toISOString()}] ❌ Failed to upsert batch of jobs for site ${siteId}:`, error);
         } else {
-            console.log(`✅ Upserted batch of ${batch.length} jobs for site ${siteId}`);
+            console.log(`[${new Date().toISOString()}] ✅ Upserted batch of ${batch.length} jobs for site ${siteId}`);
         }
     }
 }
@@ -31,6 +31,7 @@ async function getAllSites() {
         .select('id, name, url, scraper_type');
 
     if (error) throw error;
+    console.log(`[${new Date().toISOString()}] ✅ Retrieved ${sites.length} sites for scraping.`);
     return sites;
 }
 
