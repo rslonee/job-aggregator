@@ -20,7 +20,14 @@ class BaseScraper {
                 console.error(`❌ Error fetching page: ${url} - Status: ${response.status} - Response: ${errorText}`);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            return await response.json();
+
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.warn(`⚠️ Non-JSON response received, attempting to parse HTML for jobs.`);
+                return text; // Return text for further parsing
+            }
         } catch (error) {
             console.error(`❌ Error fetching page: ${url}`, error);
             return null;
@@ -32,19 +39,19 @@ class BaseScraper {
 class WorkdayScraper extends BaseScraper {
     async scrapeJobs() {
         const jobs = [];
-        let offset = 0;
-        const pageSize = 100;
-
         try {
-            while (true) {
-                const page = await this.fetchPage(`${this.baseUrl}`, 'POST');
+            const page = await this.fetchPage(`${this.baseUrl}`, 'POST');
 
-                if (!page || !page.jobs) break;
-                jobs.push(...page.jobs);
-                console.log(`✅ Retrieved ${page.jobs.length} jobs (offset ${offset})`);
+            if (!page) return jobs;
 
-                if (page.jobs.length < pageSize) break;
-                offset += pageSize;
+            // Check if JSON and contains jobs
+            if (page.jobPostings) {
+                jobs.push(...page.jobPostings.map(job => ({
+                    title: job.title,
+                    url: this.baseUrl + job.externalPath,
+                    location: job.locationsText,
+                    date_posted: job.postedOn
+                })));
             }
 
             console.log(`✅ Retrieved ${jobs.length} jobs from Workday using POST.`);
