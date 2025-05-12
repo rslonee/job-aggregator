@@ -14,7 +14,8 @@ def get_scraper(scraper_type: str, base_url: str):
     """
     Factory: returns an instance of the correct scraper.
     """
-    cls = SCRAPER_MAP.get(scraper_type)
+    key = scraper_type.lower()
+    cls = SCRAPER_MAP.get(key)
     if not cls:
         raise KeyError(f"Unknown scraper_type '{scraper_type}' for site")
     return cls(base_url)
