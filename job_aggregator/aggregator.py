@@ -1,37 +1,51 @@
-# job_aggregator/aggregator.py
+// Aggregation Script for Scraping Jobs
 
-import os
-import json
-from job_aggregator.database import upsert_job, load_sites_config
-from job_aggregator.scrapers import get_scraper
+import { WorkdayScraper, GreenhouseScraper, HTMLScraper } from './baseScraper.js';
+import { upsertJobsForSite, getAllSites } from '../../scripts/lib/db.js';
 
-def run_all_scrapes():
-    """
-    Loads site definitions from your DB/config and iterates over them,
-    scraping each in turn and upserting the results.
-    """
-    sites = load_sites_config()  # should return a list of dicts with id, scraper_type, url
+// Global Error Handler for Unhandled Rejections
+process.on('unhandledRejection', (reason) => {
+    console.error(`[${new Date().toISOString()}] ❌ Unhandled Rejection:`, reason);
+    process.exit(1);
+});
 
-    for site in sites:
-        print(f"⏳  Scraping site id={site['id']} ({site['scraper_type']}) @ {site['url']}")
-        # pass the full site dict, not just the URL
-        scraper = get_scraper(site["scraper_type"], site)
-        try:
-            jobs = scraper.list_job_posts()
-            print(f"✅  Retrieved {len(jobs)} jobs from {site['url']}")
-        except Exception as e:
-            print(f"❌  Error scraping {site['url']}: {e}")
-            continue
+async function runScraping() {
+    try {
+        const sites = await getAllSites();
+        for (const site of sites) {
+            let scraper;
+            switch (site.scraper_type) {
+                case 'workday':
+                    scraper = new WorkdayScraper(site.url);
+                    break;
+                case 'greenhouse':
+                    scraper = new GreenhouseScraper(site.url);
+                    break;
+                case 'html':
+                    scraper = new HTMLScraper(site.url);
+                    break;
+                default:
+                    console.warn(`[${new Date().toISOString()}] ⚠️ Unknown scraper type: ${site.scraper_type}`);
+                    continue;
+            }
 
-        for job in jobs:
-            upsert_job(
-                job_id      = job["job_id"],
-                title       = job["title"],
-                location    = job["location"],
-                date_posted = job["date_posted"],
-                url         = job["url"],
-                site_id     = site["id"],
-            )
+            try {
+                const jobs = await scraper.scrapeJobs();
+                if (jobs.length) {
+                    await upsertJobsForSite(site.id, jobs);
+                    console.log(`[${new Date().toISOString()}] ✅ Successfully upserted ${jobs.length} jobs for site: ${site.name}`);
+                } else {
+                    console.log(`[${new Date().toISOString()}] ⚠️ No jobs found for site: ${site.name}`);
+                }
+            } catch (error) {
+                console.error(`[${new Date().toISOString()}] ❌ Failed to scrape site: ${site.name}`, error);
+            }
+        }
+        console.log(`[${new Date().toISOString()}] 🚀 All scraping tasks completed.`);
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] ❌ Critical Error in Aggregation Script:`, error);
+        process.exit(1);
+    }
+}
 
-if __name__ == "__main__":
-    run_all_scrapes()
+runScraping();
