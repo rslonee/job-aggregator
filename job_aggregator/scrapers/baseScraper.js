@@ -10,9 +10,7 @@ class BaseScraper {
             const options = {
                 method: method,
                 headers: {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Accept': 'application/json'
+                    'Content-Type': 'application/json'
                 }
             };
 
@@ -39,7 +37,7 @@ class WorkdayScraper extends BaseScraper {
 
         try {
             while (true) {
-                const page = await this.fetchPage(`${this.baseUrl}?limit=${pageSize}&offset=${offset}`, 'POST');
+                const page = await this.fetchPage(`${this.baseUrl}`, 'POST');
 
                 if (!page || !page.jobs) break;
                 jobs.push(...page.jobs);
