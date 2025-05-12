@@ -18,7 +18,7 @@ async function runScraping() {
                 scraper = new HTMLScraper(site.url);
                 break;
             default:
-                console.warn(`Unknown scraper type: ${site.scraper_type}`);
+                console.warn(`[${new Date().toISOString()}] ⚠️ Unknown scraper type: ${site.scraper_type}`);
                 continue;
         }
 
@@ -26,15 +26,15 @@ async function runScraping() {
             const jobs = await scraper.scrapeJobs();
             if (jobs.length) {
                 await upsertJobsForSite(site.id, jobs);
-                console.log(`✅ Successfully upserted ${jobs.length} jobs for site: ${site.name}`);
+                console.log(`[${new Date().toISOString()}] ✅ Successfully upserted ${jobs.length} jobs for site: ${site.name}`);
             } else {
-                console.log(`⚠️ No jobs found for site: ${site.name}`);
+                console.log(`[${new Date().toISOString()}] ⚠️ No jobs found for site: ${site.name}`);
             }
         } catch (error) {
-            console.error(`❌ Failed to scrape site: ${site.name}`, error);
+            console.error(`[${new Date().toISOString()}] ❌ Failed to scrape site: ${site.name}`, error);
         }
     }
-    console.log('🚀 All scraping tasks completed.');
+    console.log(`[${new Date().toISOString()}] 🚀 All scraping tasks completed.`);
 }
 
 runScraping();
