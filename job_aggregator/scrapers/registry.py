@@ -1,8 +1,8 @@
-# scrapers/registry.py
+# job_aggregator/scrapers/registry.py
 
-from scrapers.workday import WorkdayScraper
-from scrapers.greenhouse import GreenhouseScraper
-from scrapers.ashby import AshbyScraper
+from .workday import WorkdayScraper
+from .greenhouse import GreenhouseScraper
+from .ashby import AshbyScraper
 
 def get_scraper(scraper_type: str, site: dict):
     """
