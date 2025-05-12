@@ -16,5 +16,5 @@ def get_scraper(scraper_type: str, base_url: str):
     """
     cls = SCRAPER_MAP.get(scraper_type)
     if not cls:
-        raise KeyError(f"No scraper registered for '{scraper_type}'")
+        raise KeyError(f"Unknown scraper_type '{scraper_type}' for site")
     return cls(base_url)
