@@ -1,37 +1,89 @@
-// Database Interaction Module
+// Base Scraper Class
 
-import { createClient } from '@supabase/supabase-js';
+class BaseScraper {
+    constructor(baseUrl) {
+        this.baseUrl = baseUrl;
+    }
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
-);
-
-async function upsertJobsForSite(siteId, jobs) {
-    if (!jobs.length) return;
-
-    const batchSize = 100;
-    for (let i = 0; i < jobs.length; i += batchSize) {
-        const batch = jobs.slice(i, i + batchSize);
-        const { error } = await supabase
-            .from('jobs')
-            .upsert(batch.map(job => ({ site_id: siteId, ...job })), { onConflict: ['site_id', 'job_id'] });
-
-        if (error) {
-            console.error(`❌ Failed to upsert batch of jobs for site ${siteId}:`, error);
-        } else {
-            console.log(`✅ Upserted batch of ${batch.length} jobs for site ${siteId}`);
+    async fetchPage(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error(`❌ Error fetching page: ${url}`, error);
+            return null;
         }
+    }
+
+    async scrapeJobs() {
+        throw new Error('scrapeJobs method not implemented');
     }
 }
 
-async function getAllSites() {
-    const { data: sites, error } = await supabase
-        .from('sites')
-        .select('id, name, url, scraper_type');
+// Workday Scraper
+class WorkdayScraper extends BaseScraper {
+    async scrapeJobs() {
+        const jobs = [];
+        try {
+            const firstPage = await this.fetchPage(`${this.baseUrl}/api/jobs?limit=100`);
+            if (!firstPage) return jobs;
 
-    if (error) throw error;
-    return sites;
+            jobs.push(...firstPage.jobs);
+
+            const total = firstPage.total || jobs.length;
+            for (let offset = 100; offset < total; offset += 100) {
+                const page = await this.fetchPage(`${this.baseUrl}/api/jobs?limit=100&offset=${offset}`);
+                if (page && page.jobs) jobs.push(...page.jobs);
+            }
+            console.log(`✅ Retrieved ${jobs.length} jobs from Workday.`);
+        } catch (error) {
+            console.error(`❌ Error scraping Workday:`, error);
+        }
+        return jobs;
+    }
 }
 
-export { upsertJobsForSite, getAllSites };
+// Greenhouse Scraper
+class GreenhouseScraper extends BaseScraper {
+    async scrapeJobs() {
+        const jobs = [];
+        const page = await this.fetchPage(this.baseUrl);
+        if (!page || !page.jobs) return jobs;
+
+        jobs.push(...page.jobs.map(job => ({
+            job_id: job.id,
+            title: job.title,
+            location: job.location,
+            url: job.absolute_url,
+            date_posted: job.updated_at
+        })));
+
+        console.log(`✅ Retrieved ${jobs.length} jobs from Greenhouse.`);
+        return jobs;
+    }
+}
+
+// HTML Scraper
+class HTMLScraper extends BaseScraper {
+    async scrapeJobs() {
+        const jobs = [];
+        const page = await this.fetchPage(this.baseUrl);
+        if (!page) return jobs;
+
+        const $ = cheerio.load(page);
+        $('.job-listing').each((_, el) => {
+            jobs.push({
+                job_id: $(el).attr('data-id'),
+                title: $(el).find('.job-title').text().trim(),
+                location: $(el).find('.location').text().trim(),
+                url: $(el).find('a').attr('href')
+            });
+        });
+
+        console.log(`✅ Retrieved ${jobs.length} jobs from HTML.`);
+        return jobs;
+    }
+}
+
+export { BaseScraper, WorkdayScraper, GreenhouseScraper, HTMLScraper };
