@@ -1,6 +1,6 @@
 // run.js
 
-// (Optional) load .env locally—safe to leave commented if you only use GitHub Secrets
+// load .env locally if you need it
 // require('dotenv').config();
 
 const { main } = require('./scrapers/aggregate');
