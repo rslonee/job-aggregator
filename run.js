@@ -1,7 +1,8 @@
-// run.js
-const { main } = require('./scrapers/aggregate');
+// …after fetching + mapping jobs…
+for (const job of allJobs) {
+  // ↓ temporarily force every job through
+  const passesFilter = true;
 
-main().catch(err => {
-  console.error('Fatal error in run.js:', err);
-  process.exit(1);
-});
+  console.log(`🔍 [✔] ${job.title}`);      // show every title as passing
+  await insertJobIntoSupabase(job);        // whatever your insert fn is
+}
