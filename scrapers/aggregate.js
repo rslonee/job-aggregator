@@ -1,4 +1,3 @@
-// File: scrapers/aggregate.js
 const supabase = require('../supabaseClient');
 const GreenhouseScraper = require('./greenhouseScraper');
 const WorkdayScraper = require('./workdayScraper');
@@ -47,7 +46,7 @@ async function main() {
         const { data, error } = await supabase
           .from('jobs')
           .insert([insertData], {
-            onConflict: ['site_id', 'job_id'],
+            onConflict: 'site_id,job_id',
             ignoreDuplicates: true
           });
 
