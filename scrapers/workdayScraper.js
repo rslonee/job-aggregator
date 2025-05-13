@@ -4,24 +4,31 @@ const BaseScraper = require('./baseScraper');
 
 class WorkdayScraper extends BaseScraper {
   constructor(site, filters) {
-    // site.url, site.base_url, site.name, etc. all come from Supabase
     super({ site, filters });
+
+    // allow either `site.url` or `site.endpoint` (or rename to match your Supabase column)
+    this.endpoint = site.url || site.endpoint;
+    if (!this.endpoint) {
+      throw new Error(`No Workday endpoint defined for site "${site.name}"`);
+    }
+
+    // allow either `site.base_url` or `site.website_url`
+    this.baseUrl = site.base_url || site.website_url || '';
   }
 
   async fetchJobs() {
-    console.log(`🔎 Fetching Workday jobs from ${this.site.url}`);
+    console.log(`🔎 Fetching Workday jobs from ${this.endpoint}`);
 
     const allMapped = [];
     let offset = 0;
     let total = Infinity;
 
     do {
-      // build the paged URL dynamically – you could also store a "page_size" column
-      const pageUrl = `${this.site.url}?offset=${offset}`;
+      const pageUrl = `${this.endpoint}?offset=${offset}`;
       console.log(`ℹ️  Requesting offset ${offset}`);
       const res = await axios.post(
         pageUrl,
-        {},
+        {}, // empty body
         { headers: { 'Content-Type': 'application/json' } }
       );
 
@@ -30,7 +37,7 @@ class WorkdayScraper extends BaseScraper {
         break;
       }
 
-      // capture the Workday-reported total on the first page
+      // capture total from the first page
       if (total === Infinity && typeof res.data.total === 'number') {
         total = res.data.total;
         console.log(`ℹ️  Total jobs available: ${total}`);
@@ -39,7 +46,6 @@ class WorkdayScraper extends BaseScraper {
       const postings = res.data.jobPostings;
       console.log(`ℹ️  Retrieved ${postings.length} jobs at offset ${offset}`);
 
-      // normalize each posting
       for (const j of postings) {
         let datePosted = null;
         const posted = (j.postedOn || '').toLowerCase();
@@ -57,7 +63,7 @@ class WorkdayScraper extends BaseScraper {
             : null,
           title: j.title,
           location: j.locationsText || '',
-          url: this.site.base_url + (j.externalPath || ''),
+          url: this.baseUrl + (j.externalPath || ''),
           datePosted
         });
       }
@@ -67,7 +73,7 @@ class WorkdayScraper extends BaseScraper {
 
     console.log(`✅ Mapped a total of ${allMapped.length} jobs`);
 
-    // (optional) debug print: show which titles match your TITLE_FILTERS
+    // debug: mark which titles pass your TITLE_FILTERS
     allMapped.forEach(job => {
       const matches = this.filters.some(f =>
         job.title.toLowerCase().includes(f)
