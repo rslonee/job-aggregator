@@ -4,7 +4,8 @@ const BaseScraper = require('./baseScraper');
 
 class WorkdayScraper extends BaseScraper {
   constructor(site, filters) {
-    super({ site, filters });
+    // pass site and filters separately so BaseScraper picks them up correctly
+    super(site, filters);
 
     // allow either `site.url` or `site.endpoint` (or rename to match your Supabase column)
     this.endpoint = site.url || site.endpoint;
