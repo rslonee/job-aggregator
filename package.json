@@ -1,0 +1,12 @@
+{
+  "name": "job-aggregator",
+  "version": "1.0.0",
+  "main": "run.js",
+  "scripts": {
+    "scrape": "node run.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "axios": "^1.5.0"
+  }
+}
