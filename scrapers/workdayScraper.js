@@ -3,6 +3,10 @@ const axios = require('axios');
 const BaseScraper = require('./baseScraper');
 
 class WorkdayScraper extends BaseScraper {
+  constructor({ site, filters }) {
+    super({ site, filters });
+  }
+
   async fetchJobs() {
     console.log(`🔎 Fetching Workday jobs from ${this.site.url}`);
 
