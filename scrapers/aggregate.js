@@ -1,4 +1,4 @@
-  // scrapers/aggregate.js
+require('dotenv').config();
 const supabase = require('../supabaseClient');
 const GreenhouseScraper = require('./greenhouseScraper');
 const WorkdayScraper = require('./workdayScraper');
@@ -10,7 +10,13 @@ async function main() {
     .select('*');
   if (sitesErr) throw sitesErr;
 
-  const filters = (process.env.TITLE_FILTERS || '').split(',').map(f => f.trim()).filter(Boolean);
+  const filters = (process.env.TITLE_FILTERS || '')
+    .split(',')
+    .map(f => f.trim())
+    .filter(Boolean);
+
+  // Debug: show the filters in use
+  console.log('ℹ️  Using TITLE_FILTERS:', filters);
 
   for (const site of sites) {
     try {
