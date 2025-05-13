@@ -1,5 +1,4 @@
-// scrapers/aggregate.js
-require('dotenv').config();
+  // scrapers/aggregate.js
 const supabase = require('../supabaseClient');
 const GreenhouseScraper = require('./greenhouseScraper');
 const WorkdayScraper = require('./workdayScraper');
