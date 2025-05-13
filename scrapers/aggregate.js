@@ -12,16 +12,14 @@ async function main() {
     .select('*');
   if (sitesErr) throw sitesErr;
 
-  // parse TITLE_FILTERS environment variable
+  // parse & normalize TITLE_FILTERS to lowercase
   const filters = (process.env.TITLE_FILTERS || '')
     .split(',')
-    .map(f => f.trim())
+    .map(f => f.trim().toLowerCase())
     .filter(Boolean);
-  console.log('ℹ️ Using TITLE_FILTERS:', filters);
+  console.log('ℹ️ Normalized TITLE_FILTERS:', filters);
 
-  // iterate through each site record
   for (const site of sites) {
-    // DEBUG: inspect the full site object
     console.log('» site record:', site);
 
     try {
@@ -38,19 +36,17 @@ async function main() {
           continue;
       }
 
-      // fetch & filter jobs
       const jobs = await scraper.fetchJobs();
       console.log(`🔖 ${jobs.length} jobs passed filter for "${site.name}"`);
 
-      // insert each job into Supabase
       for (const job of jobs) {
         const insertData = {
-          site_id:    site.id,
-          job_id:     job.jobId,
-          title:      job.title,
-          company:    site.name,
-          location:   job.location,
-          url:        job.url,
+          site_id:     site.id,
+          job_id:      job.jobId,
+          title:       job.title,
+          company:     site.name,
+          location:    job.location,
+          url:         job.url,
           date_posted: job.datePosted
         };
 
@@ -63,7 +59,7 @@ async function main() {
 
         if (error) {
           console.error(`❌ Insert error for ${job.jobId}:`, error.message);
-        } else if (data && data.length > 0) {
+        } else if (data && data.length) {
           console.log(`🆕 Inserted ${job.jobId} – ${job.title}`);
         } else {
           console.log(`⏭️ ${job.jobId} already exists, skipped.`);
