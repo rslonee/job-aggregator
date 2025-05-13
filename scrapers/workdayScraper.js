@@ -3,7 +3,8 @@ const axios = require('axios');
 const BaseScraper = require('./baseScraper');
 
 class WorkdayScraper extends BaseScraper {
-  constructor({ site, filters }) {
+  constructor(site, filters) {
+    // site.url, site.base_url, site.name, etc. all come from Supabase
     super({ site, filters });
   }
 
@@ -14,13 +15,13 @@ class WorkdayScraper extends BaseScraper {
     let offset = 0;
     let total = Infinity;
 
-    // keep fetching pages until we've retrieved 'total' jobs
     do {
+      // build the paged URL dynamically – you could also store a "page_size" column
       const pageUrl = `${this.site.url}?offset=${offset}`;
       console.log(`ℹ️  Requesting offset ${offset}`);
       const res = await axios.post(
         pageUrl,
-        {}, // empty body
+        {},
         { headers: { 'Content-Type': 'application/json' } }
       );
 
@@ -29,7 +30,7 @@ class WorkdayScraper extends BaseScraper {
         break;
       }
 
-      // record total on first page
+      // capture the Workday-reported total on the first page
       if (total === Infinity && typeof res.data.total === 'number') {
         total = res.data.total;
         console.log(`ℹ️  Total jobs available: ${total}`);
@@ -38,7 +39,7 @@ class WorkdayScraper extends BaseScraper {
       const postings = res.data.jobPostings;
       console.log(`ℹ️  Retrieved ${postings.length} jobs at offset ${offset}`);
 
-      // map each posting to our shape
+      // normalize each posting
       for (const j of postings) {
         let datePosted = null;
         const posted = (j.postedOn || '').toLowerCase();
@@ -66,7 +67,7 @@ class WorkdayScraper extends BaseScraper {
 
     console.log(`✅ Mapped a total of ${allMapped.length} jobs`);
 
-    // debug: show which titles match your filters
+    // (optional) debug print: show which titles match your TITLE_FILTERS
     allMapped.forEach(job => {
       const matches = this.filters.some(f =>
         job.title.toLowerCase().includes(f)
@@ -74,7 +75,6 @@ class WorkdayScraper extends BaseScraper {
       console.log(`🔍 [${matches ? '✔' : '✖'}] ${job.title}`);
     });
 
-    // apply your filters (or return all if none specified)
     const filtered = this.filterByTitle(allMapped);
     console.log(`🔖 ${filtered.length} jobs passed filter for "${this.site.name}"`);
 
