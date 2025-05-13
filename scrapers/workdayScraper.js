@@ -1,4 +1,3 @@
-// scrapers/workdayScraper.js
 const axios = require('axios');
 const BaseScraper = require('./baseScraper');
 
@@ -37,6 +36,14 @@ class WorkdayScraper extends BaseScraper {
         url: this.site.base_url + (j.externalPath || ''),
         datePosted
       };
+    });
+
+    // Debug: show which titles match your filters
+    mapped.forEach(job => {
+      const matches = this.filters.some(f =>
+        job.title.toLowerCase().includes(f)
+      );
+      console.log(`🔍 [${matches ? '✔' : '✖'}] ${job.title}`);
     });
 
     console.log(`✅ Found ${mapped.length} total jobs`);
