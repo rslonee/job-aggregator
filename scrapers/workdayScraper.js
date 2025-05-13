@@ -1,23 +1,22 @@
-// File: scrapers/workdayScraper.js
+// scrapers/workdayScraper.js
 const axios = require('axios');
 const BaseScraper = require('./baseScraper');
 
-const PAGE_SIZE = 100;  // adjust as needed
-
 class WorkdayScraper extends BaseScraper {
   async fetchJobs() {
-    console.log(`🔎 Fetching Workday jobs from ${this.site.url} with page size ${PAGE_SIZE}`);
+    console.log(`🔎 Fetching Workday jobs from ${this.site.url}`);
 
     const allMapped = [];
     let offset = 0;
     let total = Infinity;
 
+    // keep fetching pages until we've retrieved 'total' jobs
     do {
-      const pageUrl = `${this.site.url}?offset=${offset}&limit=${PAGE_SIZE}`;
+      const pageUrl = `${this.site.url}?offset=${offset}`;
       console.log(`ℹ️  Requesting offset ${offset}`);
       const res = await axios.post(
         pageUrl,
-        {},
+        {}, // empty body
         { headers: { 'Content-Type': 'application/json' } }
       );
 
@@ -26,6 +25,7 @@ class WorkdayScraper extends BaseScraper {
         break;
       }
 
+      // record total on first page
       if (total === Infinity && typeof res.data.total === 'number') {
         total = res.data.total;
         console.log(`ℹ️  Total jobs available: ${total}`);
@@ -34,6 +34,7 @@ class WorkdayScraper extends BaseScraper {
       const postings = res.data.jobPostings;
       console.log(`ℹ️  Retrieved ${postings.length} jobs at offset ${offset}`);
 
+      // map each posting to our shape
       for (const j of postings) {
         let datePosted = null;
         const posted = (j.postedOn || '').toLowerCase();
@@ -61,6 +62,7 @@ class WorkdayScraper extends BaseScraper {
 
     console.log(`✅ Mapped a total of ${allMapped.length} jobs`);
 
+    // debug: show which titles match your filters
     allMapped.forEach(job => {
       const matches = this.filters.some(f =>
         job.title.toLowerCase().includes(f)
@@ -68,6 +70,7 @@ class WorkdayScraper extends BaseScraper {
       console.log(`🔍 [${matches ? '✔' : '✖'}] ${job.title}`);
     });
 
+    // apply your filters (or return all if none specified)
     const filtered = this.filterByTitle(allMapped);
     console.log(`🔖 ${filtered.length} jobs passed filter for "${this.site.name}"`);
 
