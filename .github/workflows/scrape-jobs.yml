@@ -5,6 +5,9 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    # hard-code your actual filter keywords here instead of using a secret
+    env:
+      TITLE_FILTERS: "analyst"
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -22,4 +25,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          TITLE_FILTERS: ${{ secrets.TITLE_FILTERS }}
+          # TITLE_FILTERS is inherited from the job-level env, so we remove the secret reference
